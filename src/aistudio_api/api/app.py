@@ -51,6 +51,11 @@ async def lifespan(_app: FastAPI):
         stop_signer_daemon,
     )
 
+    from aistudio_api.infrastructure.account.bootstrap_env import (
+        require_public_auth,
+    )
+
+    require_public_auth()
     # 启动时预热本地 WAA IPC 签名子进程
     await ensure_signer_ready()
     from aistudio_api.application.account_rotator import init_rotator
@@ -64,6 +69,12 @@ async def lifespan(_app: FastAPI):
     account_store = AccountStore()
     account_service = AccountService(account_store)
     runtime_state.account_service = account_service
+
+    from aistudio_api.infrastructure.account.bootstrap_env import (
+        bootstrap_accounts_from_env,
+    )
+
+    bootstrap_accounts_from_env(account_service)
 
     # 初始化黏性账号调度器
     rotator = init_rotator(account_store)
