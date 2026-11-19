@@ -1,0 +1,22 @@
+name: keepalive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: curl -fsS -m 90 https://gcli2api-v8qh.onrender.com/health || true
+
+
+
+
+
+
+
+
+
+
+
