@@ -36,6 +36,18 @@ def _load_web_password() -> str | None:
     return os.getenv("AISTUDIO_WEB_PASSWORD") or os.getenv("AISTUDIO_ADMIN_PASSWORD")
 
 
+def _load_port() -> int:
+    raw = (os.getenv("AISTUDIO_PORT") or os.getenv("PORT") or "8080").strip()
+    return int(raw)
+
+
+def _load_env_api_keys() -> frozenset[str]:
+    raw = os.getenv("AISTUDIO_API_KEYS") or os.getenv("AISTUDIO_API_KEY") or ""
+    return frozenset(
+        part.strip() for part in raw.replace(";", ",").split(",") if part.strip()
+    )
+
+
 def _load_dump_requests_env() -> bool:
     """检查 DEBUG / AISTUDIO_DEBUG 环境变量是否启用请求转储。
 
@@ -195,12 +207,12 @@ def resolve_timezone() -> str:
 
 @dataclass(slots=True)
 class Settings:
-    port: int = int(os.getenv("AISTUDIO_PORT", "8080"))
+    port: int = _load_port()
     auth_file: str | None = discover_auth_file()
     tmp_dir: str = os.getenv("AISTUDIO_TMP_DIR", tempfile.gettempdir())
     proxy_url: str | None = discover_proxy_url()
     web_password: str | None = _load_web_password()
-    api_keys: frozenset[str] = frozenset()
+    api_keys: frozenset[str] = _load_env_api_keys()
     timezone: str = resolve_timezone()
     data_dir: str = str(resolve_data_dir())
     accounts_dir: str = os.getenv("AISTUDIO_ACCOUNTS_DIR", "")
