@@ -320,7 +320,7 @@ install_portable_go() {
   [ "$ok" -eq 1 ] || return 1
 
   rm -rf "$go_root"
-  tar -xzf "$tmp_tar" -C "$tools_dir"
+  tar --no-same-owner -xzf "$tmp_tar" -C "$tools_dir"
   rm -f "$tmp_tar"
   export GOROOT="$go_root"
   export PATH="${go_root}/bin:${PATH}"
@@ -407,7 +407,7 @@ install_portable_zig() {
 
   rm -rf "$zig_dir"
   mkdir -p "$zig_dir"
-  tar -xJf "$tmp_tar" --strip-components=1 -C "$zig_dir"
+  tar --no-same-owner -xJf "$tmp_tar" --strip-components=1 -C "$zig_dir"
   rm -f "$tmp_tar"
   [ -x "${zig_dir}/zig" ] || return 1
   export PATH="${zig_dir}:${PATH}"
@@ -558,7 +558,7 @@ ensure_spidermonkey_deps() {
   local extract_tmp="${DEPS_DIR}.extracting"
   rm -rf "$extract_tmp"
   mkdir -p "$extract_tmp"
-  tar -xzf "$temp_tar" -C "$extract_tmp"
+  tar --no-same-owner -xzf "$temp_tar" -C "$extract_tmp"
   rm -f "$temp_tar"
 
   if [ ! -f "${extract_tmp}/lib/libjs_static.a" ] || [ ! -f "${extract_tmp}/include/jsapi.h" ]; then
