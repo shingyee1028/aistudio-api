@@ -66,6 +66,14 @@ async def lifespan(_app: FastAPI):
     runtime_state.client = client
 
     # 初始化账号管理服务
+    # Restore data/accounts from the private GitHub state repo (if
+    # AISTUDIO_STATE_GH_TOKEN/REPO are set) before the store loads it.
+    from aistudio_api.infrastructure.account.state_sync_github import (
+        GitHubStateSync,
+        restore_accounts_from_github,
+    )
+
+    restore_accounts_from_github()
     account_store = AccountStore()
     account_service = AccountService(account_store)
     runtime_state.account_service = account_service
@@ -282,12 +290,15 @@ async def lifespan(_app: FastAPI):
 
     tier_task = asyncio.create_task(_auto_refresh_tiers())
     rotate_task = asyncio.create_task(_cookie_rotation_loop())
+    state_sync = GitHubStateSync()
+    state_sync.start()
 
     yield
     logger.info("正在关闭服务")
     for bg_task in (tier_task, rotate_task):
         if bg_task and not bg_task.done():
             bg_task.cancel()
+    await state_sync.stop()  # final push of rotated cookies
     if client:
         try:
             await client.close()
