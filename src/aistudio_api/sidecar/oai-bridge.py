@@ -156,8 +156,17 @@ def to_gemini(body):
         if body.get(o) is not None:
             cfg[g] = body[o]
     mt = body.get("max_completion_tokens") or body.get("max_tokens")
+    if mt is not None:
+        try:
+            mt = int(mt)
+        except (TypeError, ValueError):
+            mt = None
     if mt:
-        cfg["maxOutputTokens"] = mt
+        # Gemini counts thought tokens toward maxOutputTokens. Thinking models
+        # (especially gemini-4-hydrogen) often spend thousands of tokens—sometimes
+        # the entire SillyTavern cap—on thinking, so reply() never starts or is
+        # cut off. Leave headroom for thoughts; cap at the model output limit.
+        cfg["maxOutputTokens"] = min(65536, max(mt, 0) + 32768)
     stop = body.get("stop")
     if stop:
         cfg["stopSequences"] = [stop] if isinstance(stop, str) else stop
