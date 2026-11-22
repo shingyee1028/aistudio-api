@@ -171,8 +171,23 @@ def to_gemini(body):
     if stop:
         cfg["stopSequences"] = [stop] if isinstance(stop, str) else stop
     effort = str(body.get("reasoning_effort") or "").upper()
-    if effort in ("MINIMAL", "LOW", "MEDIUM", "HIGH"):
-        cfg["thinkingConfig"] = {"includeThoughts": True, "thinkingLevel": effort}
+    model_l = str(body.get("model") or "").lower()
+    thinking_model = any(k in model_l for k in ("hydrogen", "argon", "carbon"))
+    # SillyTavern's custom OpenAI source does not forward reasoning_effort for
+    # Gemini names, so hydrogen/[防截断] streams would hide thoughts and look
+    # like a stuck spinner until reply() finishes. includeThoughts alone is
+    # dropped by aistudio-api; mode=1 keeps the default thinking amount but
+    # returns the thought stream. Do not force this on flash-lite.
+    want_thoughts = (
+        effort in ("MINIMAL", "LOW", "MEDIUM", "HIGH")
+        or bool(body.get("include_reasoning"))
+        or (body.get("stream") and thinking_model)
+    )
+    if want_thoughts:
+        think = {"includeThoughts": True, "mode": 1}
+        if effort in ("MINIMAL", "LOW", "MEDIUM", "HIGH"):
+            think["thinkingLevel"] = effort
+        cfg["thinkingConfig"] = think
     if cfg:
         req["generationConfig"] = cfg
     tools, tool_cfg = to_tools(body)
@@ -337,7 +352,8 @@ class H(BaseHTTPRequestHandler):
             if not last[0]:
                 self.send_response(200)
                 for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-cache"),
-                             ("Connection", "close"), ("Access-Control-Allow-Origin", "*")):
+                             ("Connection", "close"), ("Access-Control-Allow-Origin", "*"),
+                             ("X-Accel-Buffering", "no")):
                     self.send_header(k, v)
                 self.end_headers()
                 self.close_connection = True
@@ -400,7 +416,13 @@ class H(BaseHTTPRequestHandler):
                     text, thought, fin, calls = from_gemini(g, reply_mode)
                     if thought:
                         emit({"reasoning_content": thought})
-                    if text:
+                    # [防截断] delivers the whole reply in one tool call. Slice it so
+                    # SillyTavern's OpenAI stream UI actually paints text instead of
+                    # spinning until a single multi-KB chunk arrives at the end.
+                    if text and reply_mode and len(text) > 24:
+                        for i in range(0, len(text), 24):
+                            emit({"content": text[i:i + 24]})
+                    elif text:
                         emit({"content": text})
                     for c in calls:
                         emit({"tool_calls": [dict(c, index=n_calls)]})
